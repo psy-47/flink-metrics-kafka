@@ -18,8 +18,13 @@
 
 package org.apache.flink.metrics.kafka;
 
-import com.alibaba.fastjson.JSONObject;
-import org.apache.flink.metrics.*;
+import com.alibaba.fastjson2.JSONObject;
+import org.apache.flink.metrics.Counter;
+import org.apache.flink.metrics.Gauge;
+import org.apache.flink.metrics.Histogram;
+import org.apache.flink.metrics.Meter;
+import org.apache.flink.metrics.Metric;
+import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.metrics.reporter.MetricReporter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,7 +38,13 @@ import java.util.Map;
  * An abstract reporter with registry for metrics.
  */
 abstract class AbstractReporter implements MetricReporter {
+
     protected final Logger log = LoggerFactory.getLogger(getClass());
+
+    protected static final String METRIC = "metric";
+    protected static final String NAME = "name";
+    protected static final String VALUE = "value";
+    protected static final String TYPE = "type";
 
     protected final Map<Gauge<?>, JSONObject> gauges = new HashMap<>();
     protected final Map<Counter, JSONObject> counters = new HashMap<>();
@@ -44,7 +55,7 @@ abstract class AbstractReporter implements MetricReporter {
     @Override
     public void notifyOfAddedMetric(Metric metric, String metricName, MetricGroup group) {
         JSONObject metrics = convert(group);
-        metrics.put("name", metricName);
+        metrics.put(NAME, metricName);
         synchronized (this) {
             if (metric instanceof Counter) {
                 counters.put((Counter) metric, metrics);
@@ -78,7 +89,7 @@ abstract class AbstractReporter implements MetricReporter {
     }
 
     protected void tryRemove() {
-        List<Metric> removed = new ArrayList<>();
+        final List<Metric> removed = new ArrayList<>();
         for (Metric metric : delayRemoveList) {
             if (metric instanceof Counter) {
                 counters.remove(metric);

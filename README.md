@@ -6,8 +6,8 @@ Compile the source code and put the output jar to flink/plugins/metrics-kafka fo
 ```yaml
 metrics.reporter.kafka.factory.class: org.apache.flink.metrics.kafka.KafkaReporterFactory
 metrics.reporter.kafka.bootstrapServers: 192.168.7.202:9092
-metrics.reporter.kafka.topic: flink-metrics
+metrics.reporter.kafka.topic: flink_metrics
 metrics.reporter.kafka.chunkSize: 20
 metrics.reporter.kafka.filter: none
-metrics.reporter.kafka.interval: 15 SECONDS
+metrics.reporter.kafka.interval: 10 SECONDS
 ``` 

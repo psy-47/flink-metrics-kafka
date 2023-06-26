@@ -18,16 +18,26 @@
 
 package org.apache.flink.metrics.kafka;
 
-import com.alibaba.fastjson.JSONArray;
-import com.alibaba.fastjson.JSONObject;
-import org.apache.flink.metrics.*;
+import com.alibaba.fastjson2.JSONArray;
+import com.alibaba.fastjson2.JSONObject;
+import org.apache.flink.metrics.Counter;
+import org.apache.flink.metrics.Gauge;
+import org.apache.flink.metrics.Histogram;
+import org.apache.flink.metrics.Meter;
+import org.apache.flink.metrics.Metric;
+import org.apache.flink.metrics.MetricConfig;
+import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.metrics.reporter.InstantiateViaFactory;
 import org.apache.flink.metrics.reporter.MetricReporter;
 import org.apache.flink.metrics.reporter.Scheduled;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 import java.util.stream.Collectors;
 
 
@@ -36,45 +46,45 @@ import java.util.stream.Collectors;
  */
 @InstantiateViaFactory(factoryClassName = "org.apache.flink.metrics.kafka.KafkaReporterFactory")
 public class KafkaReporter extends AbstractReporter implements Scheduled {
+
+
     private KafkaProducer<String, String> kafkaProducer;
-    private List<String> metricsFilter = new ArrayList<>();
+    private final List<String> metricsFilter = new ArrayList<>();
     private int chunkSize;
     private String topic;
 
     @Override
     public void open(MetricConfig metricConfig) {
-        String bootstrapServer = metricConfig.getString("bootstrapServers", "localhost:9092");
-        String filter = metricConfig.getString("filter", "numRecordsIn,numRecordsOut");
-        String chunkSize = metricConfig.getString("chunkSize", "20");
-        String topic = metricConfig.getString("topic", "flink-metrics");
-        Properties properties = new Properties();
+        final String bootstrapServer = metricConfig.getString("bootstrapServers", "localhost:9092");
+        final String filter = metricConfig.getString("filter", "numRecordsIn,numRecordsOut");
+        final Properties properties = new Properties();
         properties.setProperty("bootstrap.servers", bootstrapServer);
         properties.setProperty("acks", "all");
         properties.setProperty("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
         properties.setProperty("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
-        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+        final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         Thread.currentThread().setContextClassLoader(null);
         kafkaProducer = new KafkaProducer<>(properties);
         Thread.currentThread().setContextClassLoader(classLoader);
         if (!"none".equals(filter)) {
             this.metricsFilter.addAll(Arrays.asList(filter.split(",")));
         }
-        this.chunkSize = Integer.parseInt(chunkSize);
-        this.topic = topic;
+        this.chunkSize = Integer.parseInt(metricConfig.getString("chunkSize", "20"));
+        this.topic = metricConfig.getString("topic", "flink_metrics");
     }
 
     @Override
     public void notifyOfAddedMetric(Metric metric, String metricName, MetricGroup group) {
-        if (this.metricsFilter.size() > 0 && this.metricsFilter.contains(metricName)) {
+//        if (!this.metricsFilter.isEmpty() && this.metricsFilter.contains(metricName)) {
             super.notifyOfAddedMetric(metric, metricName, group);
-        }
+//        }
     }
 
     @Override
     public void notifyOfRemovedMetric(Metric metric, String metricName, MetricGroup group) {
-        if (this.metricsFilter.size() > 0 && this.metricsFilter.contains(metricName)) {
+//        if (!this.metricsFilter.isEmpty() && this.metricsFilter.contains(metricName)) {
             super.notifyOfRemovedMetric(metric, metricName, group);
-        }
+//        }
     }
 
     @Override
@@ -96,57 +106,57 @@ public class KafkaReporter extends AbstractReporter implements Scheduled {
         JSONArray jsonArray = new JSONArray();
         for (Gauge gauge : gauges.keySet()) {
             JSONObject jsonObject = new JSONObject();
-            jsonObject.put("metric", gauges.get(gauge));
-            jsonObject.put("name", gauges.get(gauge).getString("name"));
-            jsonObject.put("value", gauge);
-            jsonObject.put("type", "Gauge");
+            jsonObject.put(METRIC, gauges.get(gauge));
+            jsonObject.put(NAME, gauges.get(gauge).getString(NAME));
+            jsonObject.put(VALUE, gauge);
+            jsonObject.put(TYPE, "Gauge");
             jsonArray.add(jsonObject);
         }
         for (Counter counter : counters.keySet()) {
             JSONObject jsonObject = new JSONObject();
-            jsonObject.put("metric", counters.get(counter));
-            jsonObject.put("name", counters.get(counter).getString("name"));
-            jsonObject.put("value", counter);
-            jsonObject.put("type", "Counter");
+            jsonObject.put(METRIC, counters.get(counter));
+            jsonObject.put(NAME, counters.get(counter).getString(NAME));
+            jsonObject.put(VALUE, counter);
+            jsonObject.put(TYPE, "Counter");
             jsonArray.add(jsonObject);
         }
         for (Histogram histogram : histograms.keySet()) {
             JSONObject jsonObject = new JSONObject();
-            jsonObject.put("metric", histograms.get(histogram));
-            jsonObject.put("name", histograms.get(histogram).getString("name"));
-            jsonObject.put("value", histogram);
-            jsonObject.put("type", "Histogram");
+            jsonObject.put(METRIC, histograms.get(histogram));
+            jsonObject.put(NAME, histograms.get(histogram).getString(NAME));
+            jsonObject.put(VALUE, histogram);
+            jsonObject.put(TYPE, "Histogram");
             jsonArray.add(jsonObject);
 
         }
         for (Meter meter : meters.keySet()) {
             JSONObject jsonObject = new JSONObject();
-            jsonObject.put("metric", meters.get(meter));
-            jsonObject.put("name", meters.get(meter).getString("name"));
-            jsonObject.put("value", meter);
-            jsonObject.put("type", "Meter");
+            jsonObject.put(METRIC, meters.get(meter));
+            jsonObject.put(NAME, meters.get(meter).getString(NAME));
+            jsonObject.put(VALUE, meter);
+            jsonObject.put(TYPE, "Meter");
             jsonArray.add(jsonObject);
 
         }
 
-        Map<String, List<Object>> values = jsonArray.stream().collect(Collectors.groupingBy((item) -> {
+        final Map<String, List<Object>> values = jsonArray.stream().collect(Collectors.groupingBy(item -> {
             JSONObject object = (JSONObject) item;
-            return object.getString("name");
+            return object.getString(NAME);
         }));
 
-        for (String key : values.keySet()) {
-            List<Object> objects = values.get(key);
+        for (Map.Entry<String, List<Object>> entry : values.entrySet()) {
+            final List<Object> objects = entry.getValue();
             //spilt to chuck
-            List<List<Object>> lists = new ArrayList<>();
+            final List<List<Object>> batchValues = new ArrayList<>();
             for (int i = 0; i < objects.size(); i += chunkSize) {
                 int end = Math.min(objects.size(), i + chunkSize);
-                lists.add(objects.subList(i, end));
+                batchValues.add(objects.subList(i, end));
             }
-            for (List<Object> chunk : lists) {
-                ProducerRecord<String, String> record = new ProducerRecord<>(this.topic, key, JSONObject.toJSONString(chunk));
-                kafkaProducer.send(record);
+            for (List<Object> chunk : batchValues) {
+                final ProducerRecord<String, String> producerRecord = new ProducerRecord<>(this.topic, entry.getKey(), JSONObject.toJSONString(chunk));
+                kafkaProducer.send(producerRecord);
             }
-
         }
     }
+
 }
