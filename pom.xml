@@ -34,7 +34,7 @@ under the License.
 
     <properties>
         <kafka.version>2.4.1</kafka.version>
-        <fastjson.version>2.0.25</fastjson.version>
+        <fastjson.version>2.0.32</fastjson.version>
     </properties>
 
     <dependencies>
@@ -59,8 +59,8 @@ under the License.
         </dependency>
 
         <dependency>
-            <groupId>com.alibaba</groupId>
-            <artifactId>fastjson</artifactId>
+            <groupId>com.alibaba.fastjson2</groupId>
+            <artifactId>fastjson2</artifactId>
             <version>${fastjson.version}</version>
         </dependency>
 
@@ -100,6 +100,7 @@ under the License.
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
+                <version>3.2.4</version>
                 <executions>
                     <execution>
                         <id>shade-flink</id>
@@ -111,7 +112,7 @@ under the License.
                             <artifactSet>
                                 <includes>
                                     <include>org.apache.kafka:*</include>
-                                    <include>com.alibaba:*</include>
+                                    <include>com.alibaba.fastjson2:*</include>
                                 </includes>
                             </artifactSet>
                         </configuration>

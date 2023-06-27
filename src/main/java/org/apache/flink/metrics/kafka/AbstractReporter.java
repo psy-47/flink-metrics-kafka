@@ -73,9 +73,9 @@ abstract class AbstractReporter implements MetricReporter {
     }
 
     private JSONObject convert(MetricGroup group) {
-        JSONObject jsonObject = new JSONObject();
+        final JSONObject jsonObject = new JSONObject();
         for (Map.Entry<String, String> variable : group.getAllVariables().entrySet()) {
-            String name = variable.getKey();
+            final String name = variable.getKey();
             jsonObject.put(name.substring(1, name.length() - 1), variable.getValue());
         }
         return jsonObject;
