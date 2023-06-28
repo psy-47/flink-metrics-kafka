@@ -31,6 +31,7 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Properties;
 
@@ -104,45 +105,55 @@ public class KafkaReporter extends AbstractReporter implements Scheduled {
     }
 
     private void tryReport() {
-        final ArrayList<JSONObject> list = new ArrayList<>();
+//        final ArrayList<JSONObject> list = new ArrayList<>();
+        final LinkedHashMap<String, JSONObject> map = new LinkedHashMap<>();
         this.gauges.forEach((key, value) -> {
             final JSONObject jsonObject = new JSONObject();
-            jsonObject.put(METRIC, value);
-            jsonObject.put(NAME, value.getString(NAME));
-            jsonObject.put(VALUE, key);
-            jsonObject.put(TYPE, "Gauge");
-            list.add(jsonObject);
+            jsonObject.put(METRIC_GROUP, value);
+            jsonObject.put(METRIC_NAME, value.getString(METRIC_NAME));
+            jsonObject.put(METRIC, key);
+            jsonObject.put(METRIC_TYPE, "Gauge");
+//            list.add(jsonObject);
+            map.put(value.getString(METRIC_IDENTIFIER), jsonObject);
         });
 
         this.counters.forEach((key, value) -> {
             final JSONObject jsonObject = new JSONObject();
-            jsonObject.put(METRIC, value);
-            jsonObject.put(NAME, value.getString(NAME));
-            jsonObject.put(VALUE, key);
-            jsonObject.put(TYPE, "Counter");
-            list.add(jsonObject);
+            jsonObject.put(METRIC_GROUP, value);
+            jsonObject.put(METRIC_NAME, value.getString(METRIC_NAME));
+            jsonObject.put(METRIC, key);
+            jsonObject.put(METRIC_TYPE, "Counter");
+//            list.add(jsonObject);
+            map.put(value.getString(METRIC_IDENTIFIER), jsonObject);
         });
 
         this.histograms.forEach((key, value) -> {
             final JSONObject jsonObject = new JSONObject();
-            jsonObject.put(METRIC, value);
-            jsonObject.put(NAME, value.getString(NAME));
-            jsonObject.put(VALUE, key);
-            jsonObject.put(TYPE, "Histogram");
-            list.add(jsonObject);
+            jsonObject.put(METRIC_GROUP, value);
+            jsonObject.put(METRIC_NAME, value.getString(METRIC_NAME));
+            jsonObject.put(METRIC, key);
+            jsonObject.put(METRIC_TYPE, "Histogram");
+//            list.add(jsonObject);
+            map.put(value.getString(METRIC_IDENTIFIER), jsonObject);
         });
 
         this.meters.forEach((key, value) -> {
             final JSONObject jsonObject = new JSONObject();
-            jsonObject.put(METRIC, value);
-            jsonObject.put(NAME, value.getString(NAME));
-            jsonObject.put(VALUE, key);
-            jsonObject.put(TYPE, "Meter");
-            list.add(jsonObject);
+            jsonObject.put(METRIC_GROUP, value);
+            jsonObject.put(METRIC_NAME, value.getString(METRIC_NAME));
+            jsonObject.put(METRIC, key);
+            jsonObject.put(METRIC_TYPE, "Meter");
+//            list.add(jsonObject);
+            map.put(value.getString(METRIC_IDENTIFIER), jsonObject);
         });
 
-        list.forEach(jsonObject -> {
-            final ProducerRecord<String, String> producerRecord = new ProducerRecord<>(this.topic, null, jsonObject.toString());
+//        list.forEach(jsonObject -> {
+//            final ProducerRecord<String, String> producerRecord = new ProducerRecord<>(this.topic, jsonObject.getString("metricIdentifier"), jsonObject.toString());
+//            kafkaProducer.send(producerRecord);
+//        });
+
+        map.forEach((k, v) -> {
+            final ProducerRecord<String, String> producerRecord = new ProducerRecord<>(this.topic, k, v.toString());
             kafkaProducer.send(producerRecord);
         });
     }

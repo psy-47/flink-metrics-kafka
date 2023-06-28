@@ -41,10 +41,12 @@ abstract class AbstractReporter implements MetricReporter {
 
     protected final Logger log = LoggerFactory.getLogger(getClass());
 
+    protected static final String METRIC_GROUP = "metricGroup";
+    protected static final String METRIC_NAME = "metricName";
     protected static final String METRIC = "metric";
-    protected static final String NAME = "name";
-    protected static final String VALUE = "value";
-    protected static final String TYPE = "type";
+    protected static final String METRIC_TYPE = "metricType";
+    protected static final String METRIC_IDENTIFIER = "metricIdentifier";
+    protected static final String SCOPE_COMPONENTS = "scopeComponents";
 
     protected final Map<Gauge<?>, JSONObject> gauges = new HashMap<>();
     protected final Map<Counter, JSONObject> counters = new HashMap<>();
@@ -54,8 +56,8 @@ abstract class AbstractReporter implements MetricReporter {
 
     @Override
     public void notifyOfAddedMetric(Metric metric, String metricName, MetricGroup group) {
-        JSONObject metrics = convert(group);
-        metrics.put(NAME, metricName);
+        JSONObject metrics = convert(metricName, group);
+        metrics.put(METRIC_NAME, metricName);
         synchronized (this) {
             if (metric instanceof Counter) {
                 counters.put((Counter) metric, metrics);
@@ -72,12 +74,14 @@ abstract class AbstractReporter implements MetricReporter {
         }
     }
 
-    private JSONObject convert(MetricGroup group) {
+    private JSONObject convert(String metricName, MetricGroup group) {
         final JSONObject jsonObject = new JSONObject();
         for (Map.Entry<String, String> variable : group.getAllVariables().entrySet()) {
             final String name = variable.getKey();
             jsonObject.put(name.substring(1, name.length() - 1), variable.getValue());
         }
+        jsonObject.put(METRIC_IDENTIFIER, group.getMetricIdentifier(metricName));
+        jsonObject.put(SCOPE_COMPONENTS, group.getScopeComponents());
         return jsonObject;
     }
 
