@@ -19,20 +19,13 @@
 package org.apache.flink.metrics.kafka;
 
 import com.alibaba.fastjson2.JSONObject;
-import org.apache.flink.metrics.CharacterFilter;
-import org.apache.flink.metrics.Counter;
-import org.apache.flink.metrics.Gauge;
-import org.apache.flink.metrics.Histogram;
-import org.apache.flink.metrics.Meter;
-import org.apache.flink.metrics.Metric;
-import org.apache.flink.metrics.MetricGroup;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.flink.metrics.*;
 import org.apache.flink.metrics.reporter.MetricReporter;
-import org.apache.flink.runtime.metrics.dump.MetricDumpSerialization;
-import org.apache.flink.runtime.metrics.dump.QueryScopeInfo;
 import org.apache.flink.runtime.metrics.scope.JobManagerScopeFormat;
+import org.apache.flink.runtime.metrics.scope.ScopeFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import scala.Char;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -47,9 +40,12 @@ abstract class AbstractReporter implements MetricReporter {
     protected final Logger log = LoggerFactory.getLogger(getClass());
 
     protected static final String METRIC_GROUP = "metricGroup";
-    protected static final String METRIC_NAME = "metricName";
     protected static final String METRIC = "metric";
     protected static final String METRIC_TYPE = "metricType";
+    protected static final String METRIC_SCOPE_TYPE = "metricScopeType";
+    protected static final String METRIC_SCOPE = "metricScope";
+    protected static final String METRIC_NAME = "metricName";
+    protected static final String METRIC_FULL_NAME = "metricFullName";
     protected static final String METRIC_IDENTIFIER = "metricIdentifier";
     protected static final String SCOPE_COMPONENTS = "scopeComponents";
 
@@ -61,17 +57,16 @@ abstract class AbstractReporter implements MetricReporter {
 
     @Override
     public void notifyOfAddedMetric(Metric metric, String metricName, MetricGroup group) {
-        JSONObject metrics = convert(metricName, group);
-        metrics.put(METRIC_NAME, metricName);
+        JSONObject metricGroup = convert(metricName, group);
         synchronized (this) {
             if (metric instanceof Counter) {
-                counters.put((Counter) metric, metrics);
+                counters.put((Counter) metric, metricGroup);
             } else if (metric instanceof Gauge) {
-                gauges.put((Gauge<?>) metric, metrics);
+                gauges.put((Gauge<?>) metric, metricGroup);
             } else if (metric instanceof Histogram) {
-                histograms.put((Histogram) metric, metrics);
+                histograms.put((Histogram) metric, metricGroup);
             } else if (metric instanceof Meter) {
-                meters.put((Meter) metric, metrics);
+                meters.put((Meter) metric, metricGroup);
             } else {
                 log.warn("Cannot add unknown metric type {}. This indicates that the reporter " +
                         "does not support this metric type.", metric.getClass().getName());
@@ -92,26 +87,25 @@ abstract class AbstractReporter implements MetricReporter {
      * @return
      */
     private JSONObject convert(String metricName, MetricGroup group) {
-        final JSONObject jsonObject = new JSONObject();
-        for (Map.Entry<String, String> variable : group.getAllVariables().entrySet()) {
+        final JSONObject metricGroup = new JSONObject();
+        final Map<String, String> variables = group.getAllVariables();
+        for (Map.Entry<String, String> variable : variables.entrySet()) {
             final String name = variable.getKey();
-            jsonObject.put(name.substring(1, name.length() - 1), variable.getValue());
+            metricGroup.put(name.substring(1, name.length() - 1), variable.getValue());
         }
 
-
-        int length = group.getScopeComponents().length;
-
-        QueryScopeInfo.JobManagerQueryScopeInfo jobManagerQueryScopeInfo = new QueryScopeInfo.JobManagerQueryScopeInfo();
-        jobManagerQueryScopeInfo.getCategory();
-
-
-        String concat = JobManagerScopeFormat.concat(CharacterFilter.NO_OP_FILTER, Character.MAX_HIGH_SURROGATE, group.getScopeComponents());
-
-        JobManagerScopeFormat.concat(CharacterFilter.NO_OP_FILTER, Char.MaxValue(), group.getScopeComponents());
-
-        jsonObject.put(METRIC_IDENTIFIER, group.getMetricIdentifier(metricName));
-        jsonObject.put(SCOPE_COMPONENTS, group.getScopeComponents());
-        return jsonObject;
+        final String concat = JobManagerScopeFormat.concat(CharacterFilter.NO_OP_FILTER, '.', group.getScopeComponents());
+        final String[] scopeComponents = group.getScopeComponents();
+        final String metricIdentifier = group.getMetricIdentifier(metricName);
+        final int ordinalIndexOf = StringUtils.ordinalIndexOf(metricIdentifier, ScopeFormat.SCOPE_SEPARATOR, variables.size() + 1);
+        metricGroup.put(METRIC_SCOPE_TYPE, scopeComponents[1]);
+        metricGroup.put(METRIC_SCOPE, metricIdentifier.substring(0, ordinalIndexOf));
+        metricGroup.put(METRIC_FULL_NAME, metricIdentifier.substring(ordinalIndexOf + 1));
+        metricGroup.put(METRIC_NAME, metricName);
+        metricGroup.put("concat", concat);
+        metricGroup.put(METRIC_IDENTIFIER, metricIdentifier);
+        metricGroup.put(SCOPE_COMPONENTS, scopeComponents);
+        return metricGroup;
     }
 
     @Override

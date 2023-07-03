@@ -35,6 +35,7 @@ under the License.
     <properties>
         <kafka.version>2.4.1</kafka.version>
         <fastjson.version>2.0.32</fastjson.version>
+        <commons-lang3.version>3.3.2</commons-lang3.version>
     </properties>
 
     <dependencies>
@@ -63,7 +64,11 @@ under the License.
             <artifactId>fastjson2</artifactId>
             <version>${fastjson.version}</version>
         </dependency>
-
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>${commons-lang3.version}</version>
+        </dependency>
         <!-- test dependencies -->
 
         <dependency>
@@ -113,6 +118,7 @@ under the License.
                                 <includes>
                                     <include>org.apache.kafka:*</include>
                                     <include>com.alibaba.fastjson2:*</include>
+                                    <include>org.apache.commons:*</include>
                                 </includes>
                             </artifactSet>
                         </configuration>
