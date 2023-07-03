@@ -19,6 +19,7 @@
 package org.apache.flink.metrics.kafka;
 
 import com.alibaba.fastjson2.JSONObject;
+import org.apache.flink.metrics.CharacterFilter;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.Gauge;
 import org.apache.flink.metrics.Histogram;
@@ -26,8 +27,12 @@ import org.apache.flink.metrics.Meter;
 import org.apache.flink.metrics.Metric;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.metrics.reporter.MetricReporter;
+import org.apache.flink.runtime.metrics.dump.MetricDumpSerialization;
+import org.apache.flink.runtime.metrics.dump.QueryScopeInfo;
+import org.apache.flink.runtime.metrics.scope.JobManagerScopeFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import scala.Char;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -74,12 +79,36 @@ abstract class AbstractReporter implements MetricReporter {
         }
     }
 
+    /**
+     * metrics.scope.jm		    配置JobManager相关metrics       默认格式为 <host>.jobmanager
+     * metrics.scope.jm.job	    配置JobManager上Job的相关metrics 默认格式为 <host>.jobmanager.<job_name>
+     * metrics.scope.tm		    配置TaskManager上相关metrics     默认格式为 <host>.taskmanager.<tm_id>
+     * metrics.scope.tm.job	    配置TaskManager上Job相关metrics  默认格式为 <host>.taskmanager.<tm_id>.<job_name>
+     * metrics.scope.task		配置Task相关metrics             默认格式为 <host>.taskmanager.<tm_id>.<job_name>.<task_name>.<subtask_index>
+     * metrics.scope.operator	配置Operator相关metrics         默认格式为 <host>.taskmanager.<tm_id>.<job_name>.<operator_name>.<subtask_index>
+     *
+     * @param metricName
+     * @param group
+     * @return
+     */
     private JSONObject convert(String metricName, MetricGroup group) {
         final JSONObject jsonObject = new JSONObject();
         for (Map.Entry<String, String> variable : group.getAllVariables().entrySet()) {
             final String name = variable.getKey();
             jsonObject.put(name.substring(1, name.length() - 1), variable.getValue());
         }
+
+
+        int length = group.getScopeComponents().length;
+
+        QueryScopeInfo.JobManagerQueryScopeInfo jobManagerQueryScopeInfo = new QueryScopeInfo.JobManagerQueryScopeInfo();
+        jobManagerQueryScopeInfo.getCategory();
+
+
+        String concat = JobManagerScopeFormat.concat(CharacterFilter.NO_OP_FILTER, Character.MAX_HIGH_SURROGATE, group.getScopeComponents());
+
+        JobManagerScopeFormat.concat(CharacterFilter.NO_OP_FILTER, Char.MaxValue(), group.getScopeComponents());
+
         jsonObject.put(METRIC_IDENTIFIER, group.getMetricIdentifier(metricName));
         jsonObject.put(SCOPE_COMPONENTS, group.getScopeComponents());
         return jsonObject;

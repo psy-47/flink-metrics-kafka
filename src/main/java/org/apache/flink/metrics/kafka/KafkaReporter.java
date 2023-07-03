@@ -42,7 +42,6 @@ import java.util.Properties;
 @InstantiateViaFactory(factoryClassName = "org.apache.flink.metrics.kafka.KafkaReporterFactory")
 public class KafkaReporter extends AbstractReporter implements Scheduled {
 
-
     private KafkaProducer<String, String> kafkaProducer;
     private final List<String> metricsFilter = new ArrayList<>();
     private int chunkSize;
