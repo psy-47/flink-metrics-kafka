@@ -22,7 +22,6 @@ import com.alibaba.fastjson2.JSONObject;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.metrics.*;
 import org.apache.flink.metrics.reporter.MetricReporter;
-import org.apache.flink.runtime.metrics.scope.JobManagerScopeFormat;
 import org.apache.flink.runtime.metrics.scope.ScopeFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -94,17 +93,36 @@ abstract class AbstractReporter implements MetricReporter {
             metricGroup.put(name.substring(1, name.length() - 1), variable.getValue());
         }
 
-        final String concat = JobManagerScopeFormat.concat(CharacterFilter.NO_OP_FILTER, '.', group.getScopeComponents());
-        final String[] scopeComponents = group.getScopeComponents();
+        // 设置 metricScope 类型
+        switch (variables.size()) {
+            case 1:
+                metricGroup.put(METRIC_SCOPE_TYPE, "jobManager");
+                break;
+            case 2:
+                metricGroup.put(METRIC_SCOPE_TYPE, "taskManager");
+                break;
+            case 3:
+                metricGroup.put(METRIC_SCOPE_TYPE, "jobManagerJob");
+                break;
+            case 4:
+                metricGroup.put(METRIC_SCOPE_TYPE, "taskManagerJob");
+                break;
+            case 9:
+                metricGroup.put(METRIC_SCOPE_TYPE, "task");
+                break;
+            case 11:
+                metricGroup.put(METRIC_SCOPE_TYPE, "operator");
+                break;
+            default:
+                metricGroup.put(METRIC_SCOPE_TYPE, "none");
+        }
         final String metricIdentifier = group.getMetricIdentifier(metricName);
         final int ordinalIndexOf = StringUtils.ordinalIndexOf(metricIdentifier, ScopeFormat.SCOPE_SEPARATOR, variables.size() + 1);
-        metricGroup.put(METRIC_SCOPE_TYPE, scopeComponents[1]);
         metricGroup.put(METRIC_SCOPE, metricIdentifier.substring(0, ordinalIndexOf));
-        metricGroup.put(METRIC_FULL_NAME, metricIdentifier.substring(ordinalIndexOf + 1));
         metricGroup.put(METRIC_NAME, metricName);
-        metricGroup.put("concat", concat);
+        metricGroup.put(METRIC_FULL_NAME, metricIdentifier.substring(ordinalIndexOf + 1));
         metricGroup.put(METRIC_IDENTIFIER, metricIdentifier);
-        metricGroup.put(SCOPE_COMPONENTS, scopeComponents);
+        metricGroup.put(SCOPE_COMPONENTS, group.getScopeComponents());
         return metricGroup;
     }
 

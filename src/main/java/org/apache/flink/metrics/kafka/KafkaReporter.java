@@ -40,7 +40,6 @@ public class KafkaReporter extends AbstractReporter implements Scheduled {
 
     private KafkaProducer<String, String> kafkaProducer;
     private final List<String> metricsFilter = new ArrayList<>();
-    private int chunkSize;
     private String topic;
 
     @Override
@@ -49,7 +48,6 @@ public class KafkaReporter extends AbstractReporter implements Scheduled {
         if (!"none".equals(filter)) {
             this.metricsFilter.addAll(Arrays.asList(filter.split(",")));
         }
-        this.chunkSize = Integer.parseInt(metricConfig.getString("chunkSize", "20"));
         this.topic = metricConfig.getString("topic", "FLINK_METRICS");
 
         final Properties properties = new Properties();
