@@ -19,6 +19,11 @@
 package org.apache.flink.metrics.kafka;
 
 import com.alibaba.fastjson2.JSONObject;
+import org.apache.flink.metrics.Counter;
+import org.apache.flink.metrics.Gauge;
+import org.apache.flink.metrics.Histogram;
+import org.apache.flink.metrics.HistogramStatistics;
+import org.apache.flink.metrics.Meter;
 import org.apache.flink.metrics.Metric;
 import org.apache.flink.metrics.MetricConfig;
 import org.apache.flink.metrics.MetricGroup;
@@ -29,7 +34,11 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Properties;
 
 
 /**
@@ -99,46 +108,83 @@ public class KafkaReporter extends AbstractReporter implements Scheduled {
 
     private void tryReport() {
         final LinkedHashMap<String, JSONObject> map = new LinkedHashMap<>();
-        this.gauges.forEach((key, value) -> {
+        this.counters.forEach((k, v) -> {
             final JSONObject jsonObject = new JSONObject();
-            jsonObject.put(METRIC_GROUP, value);
-            jsonObject.put(METRIC_FULL_NAME, value.getString(METRIC_FULL_NAME));
-            jsonObject.put(METRIC, key);
-            jsonObject.put(METRIC_TYPE, "Gauge");
-            map.put(value.getString(METRIC_IDENTIFIER), jsonObject);
-        });
-
-        this.counters.forEach((key, value) -> {
-            final JSONObject jsonObject = new JSONObject();
-            jsonObject.put(METRIC_GROUP, value);
-            jsonObject.put(METRIC_FULL_NAME, value.getString(METRIC_FULL_NAME));
-            jsonObject.put(METRIC, key);
+            jsonObject.put(METRIC_GROUP, v);
+            jsonObject.put(METRIC, this.getCounterValue(k));
             jsonObject.put(METRIC_TYPE, "Counter");
-            map.put(value.getString(METRIC_IDENTIFIER), jsonObject);
+            map.put(v.getString(METRIC_IDENTIFIER), jsonObject);
         });
 
-        this.histograms.forEach((key, value) -> {
+        this.gauges.forEach((k, v) -> {
             final JSONObject jsonObject = new JSONObject();
-            jsonObject.put(METRIC_GROUP, value);
-            jsonObject.put(METRIC_FULL_NAME, value.getString(METRIC_FULL_NAME));
-            jsonObject.put(METRIC, key);
-            jsonObject.put(METRIC_TYPE, "Histogram");
-            map.put(value.getString(METRIC_IDENTIFIER), jsonObject);
+            jsonObject.put(METRIC_GROUP, v);
+            jsonObject.put(METRIC, this.getGaugeValue(k));
+            jsonObject.put(METRIC_TYPE, "Gauge");
+            map.put(v.getString(METRIC_IDENTIFIER), jsonObject);
         });
 
-        this.meters.forEach((key, value) -> {
+        this.meters.forEach((k, v) -> {
             final JSONObject jsonObject = new JSONObject();
-            jsonObject.put(METRIC_GROUP, value);
-            jsonObject.put(METRIC_FULL_NAME, value.getString(METRIC_FULL_NAME));
-            jsonObject.put(METRIC, key);
+            jsonObject.put(METRIC_GROUP, v);
+            jsonObject.put(METRIC, this.getMeterValue(k));
             jsonObject.put(METRIC_TYPE, "Meter");
-            map.put(value.getString(METRIC_IDENTIFIER), jsonObject);
+            map.put(v.getString(METRIC_IDENTIFIER), jsonObject);
+        });
+
+        this.histograms.forEach((k, v) -> {
+            final JSONObject jsonObject = new JSONObject();
+            jsonObject.put(METRIC_GROUP, v);
+            jsonObject.put(METRIC, this.getHistogramValue(k));
+            jsonObject.put(METRIC_TYPE, "Histogram");
+            map.put(v.getString(METRIC_IDENTIFIER), jsonObject);
         });
 
         map.forEach((k, v) -> {
             final ProducerRecord<String, String> producerRecord = new ProducerRecord<>(this.topic, k, v.toString());
             kafkaProducer.send(producerRecord);
         });
+    }
+
+    private JSONObject getCounterValue(Counter counter) {
+        final JSONObject value = new JSONObject();
+        value.put("count", counter.getCount());
+        return value;
+    }
+
+    private JSONObject getGaugeValue(Gauge<?> gauge) {
+        final JSONObject value = new JSONObject();
+        value.put("value", gauge.getValue());
+        return value;
+    }
+
+    private JSONObject getMeterValue(Meter meter) {
+        final JSONObject value = new JSONObject();
+        value.put("count", meter.getCount());
+        value.put("rate", meter.getRate());
+        return value;
+    }
+
+    private JSONObject getHistogramValue(Histogram histogram) {
+        final JSONObject value = new JSONObject();
+        value.put("count", histogram.getCount());
+        final JSONObject statisticsJson = new JSONObject();
+        final HistogramStatistics statistics = histogram.getStatistics();
+        statisticsJson.put("values", statistics.getValues());       // 示例元素
+        statisticsJson.put("size", statistics.size());              // 样本大小
+        statisticsJson.put("mean", statistics.getMean());           // 平均值
+        statisticsJson.put("max", statistics.getMax());             // 最大值
+        statisticsJson.put("min", statistics.getMin());             // 最小值
+        statisticsJson.put("stdDev", statistics.getStdDev());       // 标准偏差
+        statisticsJson.put("p50", statistics.getQuantile(0.5));     // 分为数值
+        statisticsJson.put("p75", statistics.getQuantile(0.75));    // 分为数值
+        statisticsJson.put("p90", statistics.getQuantile(0.90));    // 分为数值
+        statisticsJson.put("p95", statistics.getQuantile(0.95));    // 分为数值
+        statisticsJson.put("p98", statistics.getQuantile(0.98));    // 分为数值
+        statisticsJson.put("p99", statistics.getQuantile(0.99));    // 分为数值
+        statisticsJson.put("p999", statistics.getQuantile(0.999));  // 分为数值
+        value.put("statistics", statisticsJson);
+        return value;
     }
 
 }

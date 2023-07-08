@@ -117,8 +117,8 @@ under the License.
                             <artifactSet>
                                 <includes>
                                     <include>org.apache.kafka:*</include>
-                                    <include>com.alibaba.fastjson2:*</include>
                                     <include>org.apache.commons:*</include>
+                                    <include>com.alibaba.fastjson2:*</include>
                                 </includes>
                             </artifactSet>
                         </configuration>
