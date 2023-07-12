@@ -19,14 +19,8 @@
 package org.apache.flink.metrics.kafka;
 
 import com.alibaba.fastjson2.JSONObject;
-import org.apache.flink.metrics.Counter;
-import org.apache.flink.metrics.Gauge;
-import org.apache.flink.metrics.Histogram;
-import org.apache.flink.metrics.HistogramStatistics;
-import org.apache.flink.metrics.Meter;
-import org.apache.flink.metrics.Metric;
-import org.apache.flink.metrics.MetricConfig;
-import org.apache.flink.metrics.MetricGroup;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.flink.metrics.*;
 import org.apache.flink.metrics.reporter.InstantiateViaFactory;
 import org.apache.flink.metrics.reporter.MetricReporter;
 import org.apache.flink.metrics.reporter.Scheduled;
@@ -34,11 +28,7 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Properties;
+import java.util.*;
 
 
 /**
@@ -53,8 +43,8 @@ public class KafkaReporter extends AbstractReporter implements Scheduled {
 
     @Override
     public void open(MetricConfig metricConfig) {
-        final String filter = metricConfig.getString("filter", "numRecordsIn,numRecordsOut");
-        if (!"none".equals(filter)) {
+        final String filter = metricConfig.getString("filter", "");
+        if (StringUtils.isNoneBlank(filter)) {
             this.metricsFilter.addAll(Arrays.asList(filter.split(",")));
         }
         this.topic = metricConfig.getString("topic", "FLINK_METRICS");
@@ -66,11 +56,15 @@ public class KafkaReporter extends AbstractReporter implements Scheduled {
         properties.setProperty(ProducerConfig.BUFFER_MEMORY_CONFIG, metricConfig.getString("bufferMemory", "33554432"));
         properties.setProperty(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
         properties.setProperty(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
-        // acks = 0，不关心写入数据的可靠性
-        properties.setProperty(ProducerConfig.ACKS_CONFIG, "0");
-        // request.required.acks 和 min.insync.replicas 配套 acks = all，才能提高写入数据的可靠性
-//        properties.setProperty("request.required.acks","0");
-//        properties.setProperty("min.insync.replicas","0");
+        // acks = 0，不关心写入数据的可靠性， 可选值为: 0,1,all,-1 (-1=all)
+        final String acks = metricConfig.getString("acks", "0");
+        properties.setProperty(ProducerConfig.ACKS_CONFIG, acks);
+        if (StringUtils.equalsIgnoreCase(acks, "0")) {
+            // request.required.acks 和 min.insync.replicas 配套 acks = all，才能提高写入数据的可靠性
+            properties.setProperty("request.required.acks", "-1");
+            properties.setProperty("min.insync.replicas", "2");
+            properties.setProperty("replication.factor", "2");
+        }
         final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         Thread.currentThread().setContextClassLoader(null);
         kafkaProducer = new KafkaProducer<>(properties);
@@ -79,16 +73,18 @@ public class KafkaReporter extends AbstractReporter implements Scheduled {
 
     @Override
     public void notifyOfAddedMetric(Metric metric, String metricName, MetricGroup group) {
-//        if (!this.metricsFilter.isEmpty() && this.metricsFilter.contains(metricName)) {
-        super.notifyOfAddedMetric(metric, metricName, group);
-//        }
+        final String metricFullName = this.getMetricFullName(metricName, group);
+        if (!this.metricsFilter.isEmpty() && this.metricsFilter.contains(metricFullName)) {
+            super.notifyOfAddedMetric(metric, metricName, group);
+        }
     }
 
     @Override
     public void notifyOfRemovedMetric(Metric metric, String metricName, MetricGroup group) {
-//        if (!this.metricsFilter.isEmpty() && this.metricsFilter.contains(metricName)) {
-        super.notifyOfRemovedMetric(metric, metricName, group);
-//        }
+        final String metricFullName = this.getMetricFullName(metricName, group);
+        if (!this.metricsFilter.isEmpty() && this.metricsFilter.contains(metricFullName)) {
+            super.notifyOfRemovedMetric(metric, metricName, group);
+        }
     }
 
     @Override
@@ -109,41 +105,45 @@ public class KafkaReporter extends AbstractReporter implements Scheduled {
     private void tryReport() {
         final LinkedHashMap<String, JSONObject> map = new LinkedHashMap<>();
         this.counters.forEach((k, v) -> {
-            final JSONObject jsonObject = new JSONObject();
-            jsonObject.put(METRIC_GROUP, v);
-            jsonObject.put(METRIC, this.getCounterValue(k));
-            jsonObject.put(METRIC_TYPE, "Counter");
-            map.put(v.getString(METRIC_IDENTIFIER), jsonObject);
+            buildMetricData(map, v, this.getCounterValue(k), "counter");
         });
 
         this.gauges.forEach((k, v) -> {
-            final JSONObject jsonObject = new JSONObject();
-            jsonObject.put(METRIC_GROUP, v);
-            jsonObject.put(METRIC, this.getGaugeValue(k));
-            jsonObject.put(METRIC_TYPE, "Gauge");
-            map.put(v.getString(METRIC_IDENTIFIER), jsonObject);
+            buildMetricData(map, v, this.getGaugeValue(k), "gauge");
         });
 
         this.meters.forEach((k, v) -> {
-            final JSONObject jsonObject = new JSONObject();
-            jsonObject.put(METRIC_GROUP, v);
-            jsonObject.put(METRIC, this.getMeterValue(k));
-            jsonObject.put(METRIC_TYPE, "Meter");
-            map.put(v.getString(METRIC_IDENTIFIER), jsonObject);
+            buildMetricData(map, v, this.getMeterValue(k), "meter");
         });
 
         this.histograms.forEach((k, v) -> {
-            final JSONObject jsonObject = new JSONObject();
-            jsonObject.put(METRIC_GROUP, v);
-            jsonObject.put(METRIC, this.getHistogramValue(k));
-            jsonObject.put(METRIC_TYPE, "Histogram");
-            map.put(v.getString(METRIC_IDENTIFIER), jsonObject);
+            buildMetricData(map, v, this.getHistogramValue(k), "histogram");
         });
 
         map.forEach((k, v) -> {
             final ProducerRecord<String, String> producerRecord = new ProducerRecord<>(this.topic, k, v.toString());
             kafkaProducer.send(producerRecord);
         });
+    }
+
+    /**
+     * 重新构建指标数据
+     *
+     * @param map        存储指标对象集合
+     * @param group      指标分组
+     * @param metric     指标值
+     * @param metricType 指标类型
+     */
+    private void buildMetricData(LinkedHashMap<String, JSONObject> map, JSONObject group, JSONObject metric, String metricType) {
+        final JSONObject jsonObject = new JSONObject();
+        jsonObject.put(METRIC_SCOPE_TYPE, group.remove(METRIC_SCOPE_TYPE));
+        jsonObject.put(METRIC_SCOPE, group.remove(METRIC_SCOPE));
+        jsonObject.put(METRIC_NAME, group.remove(METRIC_NAME));
+        jsonObject.put(METRIC_FULL_NAME, group.remove(METRIC_FULL_NAME));
+        jsonObject.put(METRIC_GROUP, group);
+        jsonObject.put(METRIC, metric);
+        jsonObject.put(METRIC_TYPE, metricType);
+        map.put(String.valueOf(group.remove(METRIC_IDENTIFIER)), jsonObject);
     }
 
     private JSONObject getCounterValue(Counter counter) {

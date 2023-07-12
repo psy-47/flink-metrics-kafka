@@ -20,12 +20,7 @@ package org.apache.flink.metrics.kafka;
 
 import com.alibaba.fastjson2.JSONObject;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.flink.metrics.Counter;
-import org.apache.flink.metrics.Gauge;
-import org.apache.flink.metrics.Histogram;
-import org.apache.flink.metrics.Meter;
-import org.apache.flink.metrics.Metric;
-import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.metrics.*;
 import org.apache.flink.metrics.reporter.MetricReporter;
 import org.apache.flink.runtime.metrics.scope.ScopeFormat;
 import org.slf4j.Logger;
@@ -51,7 +46,6 @@ abstract class AbstractReporter implements MetricReporter {
     protected static final String METRIC_NAME = "metric_name";
     protected static final String METRIC_FULL_NAME = "metric_full_name";
     protected static final String METRIC_IDENTIFIER = "metric_identifier";
-    protected static final String SCOPE_COMPONENTS = "scope_components";
 
     protected final Map<Gauge<?>, JSONObject> gauges = new HashMap<>();
     protected final Map<Counter, JSONObject> counters = new HashMap<>();
@@ -102,29 +96,29 @@ abstract class AbstractReporter implements MetricReporter {
         int size = variables.size() + 1;
         switch (variables.size()) {
             case 1:
-                metricGroup.put(METRIC_SCOPE_TYPE, "JobManager");
+                metricGroup.put(METRIC_SCOPE_TYPE, "jobManager");
                 break;
             case 2:
-                metricGroup.put(METRIC_SCOPE_TYPE, "TaskManager");
+                metricGroup.put(METRIC_SCOPE_TYPE, "taskManager");
                 break;
             case 3:
-                metricGroup.put(METRIC_SCOPE_TYPE, "JobManagerJob");
+                metricGroup.put(METRIC_SCOPE_TYPE, "jobManagerJob");
                 size = 3;
                 break;
             case 4:
-                metricGroup.put(METRIC_SCOPE_TYPE, "TaskManagerJob");
+                metricGroup.put(METRIC_SCOPE_TYPE, "taskManagerJob");
                 size = 4;
                 break;
             case 9:
-                metricGroup.put(METRIC_SCOPE_TYPE, "Task");
+                metricGroup.put(METRIC_SCOPE_TYPE, "task");
                 size = 6;
                 break;
             case 11:
-                metricGroup.put(METRIC_SCOPE_TYPE, "Operator");
+                metricGroup.put(METRIC_SCOPE_TYPE, "operator");
                 size = 6;
                 break;
             default:
-                metricGroup.put(METRIC_SCOPE_TYPE, "None");
+                metricGroup.put(METRIC_SCOPE_TYPE, "none");
         }
         final String metricIdentifier = group.getMetricIdentifier(metricName);
         final int ordinalIndexOf = StringUtils.ordinalIndexOf(metricIdentifier, ScopeFormat.SCOPE_SEPARATOR, size);
@@ -164,4 +158,39 @@ abstract class AbstractReporter implements MetricReporter {
         }
         delayRemoveList.removeAll(removed);
     }
+
+    /**
+     * 获取指标完整命名
+     *
+     * @param metricName 指标名
+     * @param group      指标分组
+     * @return
+     */
+    protected String getMetricFullName(String metricName, MetricGroup group) {
+        final Map<String, String> variables = group.getAllVariables();
+        int size = variables.size() + 1;
+        switch (variables.size()) {
+            case 1:
+            case 2:
+                break;
+            case 3:
+                size = 3;
+                break;
+            case 4:
+                size = 4;
+                break;
+            case 9:
+            case 11:
+                size = 6;
+                break;
+            default:
+        }
+        final String metricIdentifier = group.getMetricIdentifier(metricName);
+        final int ordinalIndexOf = StringUtils.ordinalIndexOf(metricIdentifier, ScopeFormat.SCOPE_SEPARATOR, size);
+        if (ordinalIndexOf != -1) {
+            return metricIdentifier.substring(ordinalIndexOf + 1);
+        }
+        return null;
+    }
+
 }
