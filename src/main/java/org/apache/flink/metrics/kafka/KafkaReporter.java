@@ -28,6 +28,7 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 
+import java.math.BigDecimal;
 import java.util.*;
 
 
@@ -150,7 +151,12 @@ public class KafkaReporter extends AbstractReporter implements Scheduled {
 
     private JSONObject getGaugeValue(Gauge<?> gauge) {
         final JSONObject value = new JSONObject();
-        value.put("value", gauge.getValue());
+        final Object obj = gauge.getValue();
+        if (Double.class == obj.getClass()) {
+            value.put("value", BigDecimal.valueOf((Double) obj));
+        } else {
+            value.put("value", obj);
+        }
         return value;
     }
 
