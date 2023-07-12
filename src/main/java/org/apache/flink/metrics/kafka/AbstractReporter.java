@@ -55,7 +55,7 @@ abstract class AbstractReporter implements MetricReporter {
 
     @Override
     public void notifyOfAddedMetric(Metric metric, String metricName, MetricGroup group) {
-        JSONObject metricGroup = convert(metricName, group);
+        final JSONObject metricGroup = convert(metricName, group);
         synchronized (this) {
             if (metric instanceof Counter) {
                 counters.put((Counter) metric, metricGroup);

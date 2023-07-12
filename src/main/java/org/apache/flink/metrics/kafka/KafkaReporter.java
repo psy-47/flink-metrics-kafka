@@ -136,14 +136,10 @@ public class KafkaReporter extends AbstractReporter implements Scheduled {
      */
     private void buildMetricData(LinkedHashMap<String, JSONObject> map, JSONObject group, JSONObject metric, String metricType) {
         final JSONObject jsonObject = new JSONObject();
-        jsonObject.put(METRIC_SCOPE_TYPE, group.remove(METRIC_SCOPE_TYPE));
-        jsonObject.put(METRIC_SCOPE, group.remove(METRIC_SCOPE));
-        jsonObject.put(METRIC_NAME, group.remove(METRIC_NAME));
-        jsonObject.put(METRIC_FULL_NAME, group.remove(METRIC_FULL_NAME));
-        jsonObject.put(METRIC_GROUP, group);
-        jsonObject.put(METRIC, metric);
         jsonObject.put(METRIC_TYPE, metricType);
-        map.put(String.valueOf(group.remove(METRIC_IDENTIFIER)), jsonObject);
+        jsonObject.putAll(group);
+        jsonObject.putAll(metric);
+        map.put(group.getString(METRIC_IDENTIFIER), jsonObject);
     }
 
     private JSONObject getCounterValue(Counter counter) {
