@@ -153,9 +153,13 @@ public class KafkaReporter extends AbstractReporter implements Scheduled {
         final JSONObject value = new JSONObject();
         final Object obj = gauge.getValue();
         if (Double.class == obj.getClass()) {
-            value.put("value", BigDecimal.valueOf((Double) obj));
+            if (((Double) obj).isInfinite() || ((Double) obj).isNaN()) {
+                value.put("value", "0.0");
+            } else {
+                value.put("value", String.valueOf(BigDecimal.valueOf((Double) obj)));
+            }
         } else {
-            value.put("value", obj);
+            value.put("value", String.valueOf(obj));
         }
         return value;
     }
